@@ -1,3 +1,208 @@
+# Лабораторная работа №4. Анализ учебного набора данных с помощью SQL
+
+Вариант: 8.
+
+Вопрос варианта: как соотносятся продолжительность курса (hours) и средняя оценка? Сопоставьте курсы разной продолжительности.
+
+---
+
+## Шаг 1. Загрузка базы и первичная проверка
+
+В SandboxSQL загружена SQLite-база. Выполнена проверка числа строк во всех шести таблицах.
+
+Количество записей.
+
+SELECT 'groups' AS table_name, COUNT(*) AS rows_count FROM groups
+UNION ALL SELECT 'students', COUNT(*) FROM students
+UNION ALL SELECT 'teachers', COUNT(*) FROM teachers
+UNION ALL SELECT 'courses', COUNT(*) FROM courses
+UNION ALL SELECT 'enrollments', COUNT(*) FROM enrollments
+UNION ALL SELECT 'results', COUNT(*) FROM results;
+Результат:
+
+![Количество записей](../images/step01_counts.PNG)
+
+Вывод: все шесть таблиц доступны, значения совпадают с контрольными, всего 2147 записей.
+
+---
+
+## Шаг 2. Изучение структуры и формулирование аналитических вопросов
+
+База содержит шесть связанных таблиц:
+
+| Таблица | Назначение | Основные поля | Записей |
+|---|---|---|---|
+| groups | Учебные группы | id, group_name, study_year | 12 |
+| students | Студенты | id, full_name, group_id, admission_year | 240 |
+| teachers | Преподаватели | id, full_name, department | 15 |
+| courses | Курсы | id, course_name, hours, teacher_id | 30 |
+| enrollments | Записи студентов на курсы | id, student_id, course_id, enrolled_at, status | 1000 |
+| results | Итоговые оценки завершённых записей | id, enrollment_id, score, completed_at | 850 |
+
+Связи: students.group_id → groups.id; courses.teacher_id → teachers.id; enrollments.student_id → students.id; enrollments.course_id → courses.id; results.enrollment_id → enrollments.id. В каждой таблице id — первичный ключ.
+
+Просмотр данных. Просмотр первых пяти курсов.
+
+SELECT * FROM courses LIMIT 5;
+Результат:
+
+![Просмотр courses](../images/step02_courses_preview.PNG)
+
+Просмотр данных. Просмотр первых пяти записей на курсы.
+
+SELECT * FROM enrollments LIMIT 5;
+Результат:
+
+![Просмотр enrollments](../images/step02_enrollments_preview.PNG)
+
+Просмотр данных. Просмотр первых пяти результатов.
+
+SELECT * FROM results LIMIT 5;
+Результат:
+
+![Просмотр results](../images/step02_results_preview.PNG)
+
+Структура таблицы. Просмотр полей и типов данных таблицы courses.
+
+PRAGMA table_info(courses);
+Результат:
+
+![Структура courses](../images/step02_courses_structure.PNG)
+
+Первичные и внешние ключи. Связи между таблицами
+
+Первичные ключи:
+
+- groups.id — первичный ключ группы.
+- students.id — первичный ключ студента.
+- teachers.id — первичный ключ преподавателя.
+- courses.id — первичный ключ курса.
+- enrollments.id — первичный ключ записи на курс.
+- results.id — первичный ключ результата.
+
+Внешние ключи:
+
+- students.group_id → groups.id — каждый студент относится к группе.
+- courses.teacher_id → teachers.id — каждый курс закреплён за преподавателем.
+- enrollments.student_id → students.id — запись принадлежит конкретному студенту.
+- enrollments.course_id → courses.id — запись относится к конкретному курсу.
+- results.enrollment_id → enrollments.id — оценка привязана к записи на курс.
+
+Таким образом, таблица enrollments связывает студентов и курсы, а таблица results хранит итоговую оценку конкретной записи. Одна запись на курс может иметь один результат или не иметь его (850 оценок на 1000 записей).
+
+Сформулированные аналитические вопросы:
+
+1. Сколько всего записей на курсы хранится в базе? (enrollments)
+2. Как распределяются записи по статусам? (enrollments)
+3. Сколько курсов закреплено за каждым преподавателем? (teachers, courses)
+4. Какие курсы самые продолжительные? (courses)
+5. Какова средняя оценка по каждому курсу? (courses, enrollments, results)
+6. Как соотносятся продолжительность курса (hours) и средняя оценка? Сопоставьте курсы разной продолжительности. (courses, enrollments, results)
+7. Есть ли курсы без записей и записи без оценок? (courses, enrollments, results)
+
+---
+
+## Шаг 3. Фильтрация и сортировка
+
+Фильтрация курсов по длительности. Выводим курсы длительностью не менее 60 часов, отсортированные по убыванию продолжительности, а при равной продолжительности по названию.
+
+SELECT id, course_name, hours
+FROM courses
+WHERE hours >= 60
+ORDER BY hours DESC, course_name;
+Результат:
+
+![Курсы от 60 часов](../images/step03_courses_filter.PNG)
+
+Пояснение: условие WHERE hours >= 60 оставляет только курсы длительностью от 60 часов (всего 15 курсов: 5 по 84 часа, 5 по 72 часа и 5 по 60 часов). ORDER BY hours DESC, course_name сортирует их по убыванию длительности, а внутри одинаковой длительности по названию.
+
+Сортировка студентов. Выводим студентов, поступивших в 2025 году, отсортированных по фамилии и имени. Вывод ограничен первыми 10 строками.
+
+SELECT id, full_name, admission_year
+FROM students
+WHERE admission_year = 2025
+ORDER BY full_name
+LIMIT 10;
+Результат:
+
+![Студенты, поступившие в 2025 году](../images/step03_students_sort.PNG)
+
+Пояснение: WHERE admission_year = 2025 отбирает студентов, поступивших в 2025 году. Поле full_name хранит фамилию и имя, поэтому ORDER BY full_name сортирует сначала по фамилии, затем по имени. LIMIT 10 ограничивает вывод десятью строками.
+
+Вывод: WHERE отбирает нужные строки, ORDER BY задаёт порядок вывода, LIMIT ограничивает объём результата.
+
+---
+
+## Шаг 4. Агрегирование и группировка
+
+Подсчёт записей. Определяем общее число записей на курсы.
+
+SELECT COUNT(*) AS total_enrollments FROM enrollments;
+Результат:
+
+![Общее число записей](../images/step04_total.PNG)
+
+Агрегатные функции. Рассчитываем минимальную, максимальную, среднюю и суммарную продолжительность курсов.
+
+SELECT MIN(hours) AS min_hours,
+       MAX(hours) AS max_hours,
+       ROUND(AVG(hours), 2) AS avg_hours,
+       SUM(hours) AS total_hours
+FROM courses;
+Результат:
+
+![Статистика по длительности курсов](../images/step04_hours_stats.PNG)
+
+GROUP BY и HAVING. Группируем записи по статусу и оставляем только статусы, встречающиеся более 100 раз.
+
+SELECT status, COUNT(*) AS enrollments_count
+FROM enrollments
+GROUP BY status
+HAVING COUNT(*) > 100
+ORDER BY enrollments_count DESC;
+Результат:
+
+![Статусы с количеством записей больше 100](../images/step04_status_having.PNG)
+
+Разница между WHERE и HAVING: WHERE фильтрует отдельные строки до группировки, а HAVING фильтрует уже сформированные группы по рассчитанным показателям, например по COUNT(*). Поэтому условие «количество записей больше 100» можно записать только в HAVING.
+
+Вывод: в базе 1000 записей на курсы. Длительность курсов составляет от 24 до 84 часов, в среднем 54 часа, суммарно 1620 часов. После фильтрации HAVING COUNT(*) > 100 остался только статус completed (850 записей); остальные 150 записей распределены по другим статусам, в каждом из которых не больше 100 записей.
+
+---
+
+## Шаг 5. Соединение таблиц
+
+Студенты и группы. С помощью INNER JOIN выводим первых 10 студентов и названия их учебных групп.
+
+SELECT s.id, s.full_name AS student_name, g.group_name
+FROM students AS s
+INNER JOIN groups AS g ON g.id = s.group_id
+ORDER BY s.id
+LIMIT 10;
+Результат:
+
+![Студенты и группы](../images/step05_students_groups.PNG)
+
+Курсы и преподаватели. С помощью INNER JOIN выводим первые 10 курсов и ФИО назначенных преподавателей.
+
+SELECT c.id, c.course_name, t.full_name AS teacher_name
+FROM courses AS c
+INNER JOIN teachers AS t ON t.id = c.teacher_id
+ORDER BY c.id
+LIMIT 10;
+Результат:
+
+![Курсы и преподаватели](../images/step05_courses_teachers.PNG)
+
+Все преподаватели и их курсы. С помощью LEFT JOIN выводим всех 15 преподавателей и закреплённые за ними курсы.
+
+SELECT t.id, t.full_name AS teacher_name, c.course_name
+FROM teachers AS t
+LEFT JOIN courses AS c ON c.teacher_id = t.id
+ORDER BY t.id, c.course_name;
+Результат:
+
+![Преподаватели и курсы (LEFT JOIN)](../images/step05_teachers_left_join.PNG)
 Проверка: в результате LEFT JOIN присутствуют все 15 преподавателей (COUNT(DISTINCT t.id) равно 15).
 
 Почему строк в третьем запросе больше 15: результат содержит 30 строк, потому что за каждым преподавателем закреплено по два курса, и преподаватель повторяется по одной строке на каждый курс. Если бы у преподавателя не было курсов, он всё равно остался бы в выводе, а поле course_name было бы равно NULL. В этой базе таких преподавателей нет.
