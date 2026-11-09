@@ -50,13 +50,4 @@
 
 [Аналитический отчёт](report/analysis.md)
 
-## Структура репозитория
 
-lab4/
-├── README.md
-├── datasets/
-│   └── dataset.sqlite
-├── report/
-│   └── analysis.md
-└── images/
-    └── step01_counts.PNG, step02_*.PNG, ... step07_*.PNG
